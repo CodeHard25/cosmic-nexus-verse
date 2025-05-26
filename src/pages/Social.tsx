@@ -1,65 +1,108 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Image, Video, Smile, Send, Users, TrendingUp } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Social = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [newPost, setNewPost] = useState("");
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock social data
-  const posts = [
-    {
-      id: 1,
-      author: {
-        name: "Alex Rivera",
-        username: "@alexr",
-        avatar: "/placeholder.svg",
-        verified: true
-      },
-      content: "Just launched my new AI-powered app! 🚀 Amazing what we can build with modern tools. The future is here and it's incredibly exciting. #AI #Innovation #TechLife",
-      timestamp: "2 hours ago",
-      likes: 156,
-      comments: 23,
-      shares: 12,
-      image: "/placeholder.svg",
-      liked: false
-    },
-    {
-      id: 2,
-      author: {
-        name: "Sarah Design",
-        username: "@sarahdesigns",
-        avatar: "/placeholder.svg",
-        verified: false
-      },
-      content: "Working on some new UI concepts for mobile apps. Clean, minimal, and user-focused. What do you think about the latest design trends?",
-      timestamp: "4 hours ago",
-      likes: 89,
-      comments: 15,
-      shares: 7,
-      liked: true
-    },
-    {
-      id: 3,
-      author: {
-        name: "Tech Insights",
-        username: "@techinsights",
-        avatar: "/placeholder.svg",
-        verified: true
-      },
-      content: "The rise of decentralized applications is reshaping how we think about data ownership and privacy. What are your thoughts on the future of Web3?",
-      timestamp: "6 hours ago",
-      likes: 234,
-      comments: 45,
-      shares: 28,
-      liked: false
+  const fetchPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('social_posts')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            username,
+            avatar_url
+          ),
+          post_likes (
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPosts(data || []);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const handleCreatePost = async () => {
+    if (!newPost.trim() || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('social_posts')
+        .insert({
+          user_id: user.id,
+          content: newPost,
+          likes_count: 0,
+          comments_count: 0
+        });
+
+      if (error) throw error;
+
+      setNewPost("");
+      toast({
+        title: "Success",
+        description: "Post created successfully!",
+      });
+      fetchPosts();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLikePost = async (postId: string, isLiked: boolean) => {
+    if (!user) return;
+
+    try {
+      if (isLiked) {
+        await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+      } else {
+        await supabase
+          .from('post_likes')
+          .insert({
+            post_id: postId,
+            user_id: user.id
+          });
+      }
+      fetchPosts();
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  // Mock data for trending and suggestions (replace with real data later)
   const trendingTopics = [
     { name: "#AIRevolution", posts: "12.3K posts" },
     { name: "#WebDevelopment", posts: "8.7K posts" },
@@ -125,17 +168,17 @@ const Social = () => {
                 </h3>
               </CardHeader>
               <CardContent className="space-y-4">
-                {suggestedUsers.map((user, index) => (
+                {suggestedUsers.map((suggestedUser, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={user.avatar} />
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
+                      <AvatarImage src={suggestedUser.avatar} />
+                      <AvatarFallback>{suggestedUser.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium text-sm">{user.name}</p>
-                      <p className="text-white/60 text-xs">{user.username}</p>
-                      <p className="text-white/50 text-xs mt-1 line-clamp-2">{user.bio}</p>
-                      <p className="text-white/60 text-xs">{user.followers} followers</p>
+                      <p className="text-white font-medium text-sm">{suggestedUser.name}</p>
+                      <p className="text-white/60 text-xs">{suggestedUser.username}</p>
+                      <p className="text-white/50 text-xs mt-1 line-clamp-2">{suggestedUser.bio}</p>
+                      <p className="text-white/60 text-xs">{suggestedUser.followers} followers</p>
                     </div>
                     <Button size="sm" variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10">
                       Follow
@@ -153,8 +196,8 @@ const Social = () => {
               <CardContent className="p-4">
                 <div className="flex gap-3">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src="/placeholder.svg" />
-                    <AvatarFallback>You</AvatarFallback>
+                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarFallback>{user?.user_metadata?.full_name?.[0] || 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <Textarea
@@ -176,7 +219,11 @@ const Social = () => {
                           <Smile className="w-4 h-4" />
                         </Button>
                       </div>
-                      <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                      <Button 
+                        onClick={handleCreatePost}
+                        disabled={!newPost.trim()}
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                      >
                         <Send className="w-4 h-4 mr-2" />
                         Post
                       </Button>
@@ -187,69 +234,83 @@ const Social = () => {
             </Card>
 
             {/* Posts Feed */}
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <Card key={post.id} className="bg-white/10 backdrop-blur-sm border-white/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={post.author.avatar} />
-                          <AvatarFallback>{post.author.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-white font-medium">{post.author.name}</p>
-                            {post.author.verified && (
-                              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs">✓</span>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-white/60 text-sm">{post.author.username} • {post.timestamp}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
+            {loading ? (
+              <div className="text-center text-white">Loading posts...</div>
+            ) : (
+              <div className="space-y-6">
+                {posts.map((post) => {
+                  const isLiked = post.post_likes?.some((like: any) => like.user_id === user?.id);
                   
-                  <CardContent className="pt-0">
-                    <p className="text-white mb-4">{post.content}</p>
-                    
-                    {post.image && (
-                      <img
-                        src={post.image}
-                        alt="Post image"
-                        className="w-full h-64 object-cover rounded-lg mb-4"
-                      />
-                    )}
-                    
-                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`text-white/70 hover:text-white hover:bg-white/10 ${post.liked ? 'text-red-400' : ''}`}
-                      >
-                        <Heart className={`w-4 h-4 mr-2 ${post.liked ? 'fill-current' : ''}`} />
-                        {post.likes}
-                      </Button>
+                  return (
+                    <Card key={post.id} className="bg-white/10 backdrop-blur-sm border-white/20">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={post.profiles?.avatar_url} />
+                              <AvatarFallback>{post.profiles?.full_name?.[0] || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-white font-medium">
+                                  {post.profiles?.full_name || 'Unknown User'}
+                                </p>
+                              </div>
+                              <p className="text-white/60 text-sm">
+                                @{post.profiles?.username || 'user'} • {new Date(post.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
                       
-                      <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        {post.comments}
-                      </Button>
-                      
-                      <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
-                        <Share2 className="w-4 h-4 mr-2" />
-                        {post.shares}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <CardContent className="pt-0">
+                        <p className="text-white mb-4">{post.content}</p>
+                        
+                        {post.image_url && (
+                          <img
+                            src={post.image_url}
+                            alt="Post image"
+                            className="w-full h-64 object-cover rounded-lg mb-4"
+                          />
+                        )}
+                        
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLikePost(post.id, isLiked)}
+                            className={`text-white/70 hover:text-white hover:bg-white/10 ${isLiked ? 'text-red-400' : ''}`}
+                          >
+                            <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                            {post.post_likes?.length || 0}
+                          </Button>
+                          
+                          <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            {post.comments_count}
+                          </Button>
+                          
+                          <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                
+                {posts.length === 0 && (
+                  <div className="text-center text-white/70 py-8">
+                    No posts yet. Be the first to share something!
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar - Activity */}
@@ -261,30 +322,9 @@ const Social = () => {
               <CardContent className="space-y-4">
                 <div className="text-sm">
                   <p className="text-white/70">
-                    <span className="text-white font-medium">Sarah Design</span> liked your post
+                    Welcome to UniVerse! Start connecting with others.
                   </p>
-                  <p className="text-white/50 text-xs">2 minutes ago</p>
-                </div>
-                
-                <div className="text-sm">
-                  <p className="text-white/70">
-                    <span className="text-white font-medium">Tech Insights</span> started following you
-                  </p>
-                  <p className="text-white/50 text-xs">1 hour ago</p>
-                </div>
-                
-                <div className="text-sm">
-                  <p className="text-white/70">
-                    <span className="text-white font-medium">Alex Rivera</span> commented on your post
-                  </p>
-                  <p className="text-white/50 text-xs">3 hours ago</p>
-                </div>
-                
-                <div className="text-sm">
-                  <p className="text-white/70">
-                    You have <span className="text-white font-medium">5 new</span> friend requests
-                  </p>
-                  <p className="text-white/50 text-xs">5 hours ago</p>
+                  <p className="text-white/50 text-xs">Just now</p>
                 </div>
               </CardContent>
             </Card>
