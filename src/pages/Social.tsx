@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -19,7 +18,7 @@ const Social = () => {
 
   const fetchPosts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('social_posts')
         .select(`
           *,
@@ -51,7 +50,7 @@ const Social = () => {
     if (!newPost.trim() || !user) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('social_posts')
         .insert({
           user_id: user.id,
@@ -83,13 +82,13 @@ const Social = () => {
 
     try {
       if (isLiked) {
-        await supabase
+        await (supabase as any)
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
       } else {
-        await supabase
+        await (supabase as any)
           .from('post_likes')
           .insert({
             post_id: postId,
