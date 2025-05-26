@@ -333,5 +333,17 @@ const Social = () => {
     </div>
   );
 };
+/*I had similar issues a couple of days ago. This is what I did and it worked:
 
+Config.toml
+
+[auth.external.google] enabled = true client_id = “env(GOOGLE_CLIENT_ID)” secret = “env(GOOGLE_CLIENT_SECRET)” redirect_uri = “http://localhost:54321/auth/v1/callback” url = “”
+
+Stop and then start supabase from CLI.
+
+Next, in Google Cloud Console: Authorized JavaScript origins: http://localhost:5173 https://yourcustomdomain.com
+
+Authorized redirect URIs: https://<project_id>.supabase.co/auth/v1/callback http://localhost:54321/auth/v1/callback http://localhost:5173/auth/callback http://localhost:54321/auth/v1/callback
+
+Make sure you have those redirects in Supabase URLs (dashboard) as well. I’m on mobile, can’t check the exact config.*/
 export default Social;
