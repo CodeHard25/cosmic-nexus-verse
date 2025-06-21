@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -9,16 +10,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface Post {
+  id: string;
+  content: string;
+  image_url?: string;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  profiles?: {
+    full_name?: string;
+    username?: string;
+    avatar_url?: string;
+  };
+  post_likes?: { user_id: string }[];
+}
+
 const Social = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [newPost, setNewPost] = useState("");
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPosts = async () => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('social_posts')
         .select(`
           *,
@@ -50,7 +66,7 @@ const Social = () => {
     if (!newPost.trim() || !user) return;
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('social_posts')
         .insert({
           user_id: user.id,
@@ -82,13 +98,13 @@ const Social = () => {
 
     try {
       if (isLiked) {
-        await (supabase as any)
+        await supabase
           .from('post_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
       } else {
-        await (supabase as any)
+        await supabase
           .from('post_likes')
           .insert({
             post_id: postId,
@@ -238,7 +254,7 @@ const Social = () => {
             ) : (
               <div className="space-y-6">
                 {posts.map((post) => {
-                  const isLiked = post.post_likes?.some((like: any) => like.user_id === user?.id);
+                  const isLiked = post.post_likes?.some((like) => like.user_id === user?.id);
                   
                   return (
                     <Card key={post.id} className="bg-white/10 backdrop-blur-sm border-white/20">
@@ -285,7 +301,7 @@ const Social = () => {
                             className={`text-white/70 hover:text-white hover:bg-white/10 ${isLiked ? 'text-red-400' : ''}`}
                           >
                             <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-                            {post.post_likes?.length || 0}
+                            {post.likes_count}
                           </Button>
                           
                           <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
@@ -333,17 +349,5 @@ const Social = () => {
     </div>
   );
 };
-/*I had similar issues a couple of days ago. This is what I did and it worked:
 
-Config.toml
-
-[auth.external.google] enabled = true client_id = “env(GOOGLE_CLIENT_ID)” secret = “env(GOOGLE_CLIENT_SECRET)” redirect_uri = “http://localhost:54321/auth/v1/callback” url = “”
-
-Stop and then start supabase from CLI.
-
-Next, in Google Cloud Console: Authorized JavaScript origins: http://localhost:5173 https://yourcustomdomain.com
-
-Authorized redirect URIs: https://<project_id>.supabase.co/auth/v1/callback http://localhost:54321/auth/v1/callback http://localhost:5173/auth/callback http://localhost:54321/auth/v1/callback
-
-Make sure you have those redirects in Supabase URLs (dashboard) as well. I’m on mobile, can’t check the exact config.*/
 export default Social;
