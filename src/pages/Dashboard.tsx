@@ -1,51 +1,84 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, BookOpen, MessageCircle, Bot, BarChart3, Users, TrendingUp, DollarSign, Eye, Heart } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useCart } from "@/components/shop/CartContext";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const { getItemCount, getTotalPrice } = useCart();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserPosts();
+    }
+  }, [user]);
+
+  const fetchUserPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('social_posts')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setPosts(data || []);
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = [
     { 
-      title: "Total Revenue", 
-      value: "$12,484", 
-      change: "+12.5%", 
+      title: "Cart Total", 
+      value: `$${getTotalPrice().toFixed(2)}`, 
+      change: `${getItemCount()} items`, 
       icon: DollarSign, 
       color: "text-green-500" 
     },
     { 
-      title: "Blog Views", 
-      value: "8,429", 
-      change: "+8.2%", 
-      icon: Eye, 
+      title: "Your Posts", 
+      value: posts.length.toString(), 
+      change: "Social posts", 
+      icon: MessageCircle, 
       color: "text-blue-500" 
     },
     { 
-      title: "Social Followers", 
-      value: "2,156", 
-      change: "+15.3%", 
-      icon: Users, 
+      title: "Profile Views", 
+      value: "156", 
+      change: "+12% this week", 
+      icon: Eye, 
       color: "text-purple-500" 
     },
     { 
       title: "AI Generations", 
-      value: "1,247", 
-      change: "+23.1%", 
+      value: "23", 
+      change: "This month", 
       icon: Bot, 
       color: "text-orange-500" 
     },
   ];
 
   const recentActivity = [
-    { type: "sale", message: "New order #1234 - $89.99", time: "2 minutes ago", icon: ShoppingCart },
-    { type: "blog", message: "Blog post published: 'AI in 2025'", time: "1 hour ago", icon: BookOpen },
-    { type: "social", message: "Your post received 50 likes", time: "3 hours ago", icon: Heart },
-    { type: "ai", message: "AI image generated successfully", time: "5 hours ago", icon: Bot },
+    { type: "cart", message: `${getItemCount()} items in your cart worth $${getTotalPrice().toFixed(2)}`, time: "Now", icon: ShoppingCart },
+    { type: "social", message: `You have ${posts.length} posts published`, time: "Today", icon: MessageCircle },
+    { type: "ai", message: "AI tools available for use", time: "Available", icon: Bot },
+    { type: "blog", message: "Blog articles ready to read", time: "Updated", icon: BookOpen },
   ];
 
   return (
@@ -58,7 +91,7 @@ const Dashboard = () => {
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">
               <span className="bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-                Welcome back, Creator! 
+                Welcome back, {user?.user_metadata?.full_name || 'Creator'}! 
               </span>
             </h1>
             <p className="text-white/70 text-lg">
@@ -78,8 +111,8 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                  <p className="text-xs text-green-400">
-                    {stat.change} from last month
+                  <p className="text-xs text-white/60">
+                    {stat.change}
                   </p>
                 </CardContent>
               </Card>
@@ -147,19 +180,31 @@ const Dashboard = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Button className="w-full justify-start bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
+                    <Button 
+                      onClick={() => navigate('/shop')}
+                      className="w-full justify-start bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
                       <ShoppingCart className="w-4 h-4 mr-2" />
-                      Add New Product
+                      Browse Shop
                     </Button>
-                    <Button className="w-full justify-start bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700">
+                    <Button 
+                      onClick={() => navigate('/blog')}
+                      className="w-full justify-start bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
+                    >
                       <BookOpen className="w-4 h-4 mr-2" />
-                      Write Blog Post
+                      Read Blog Posts
                     </Button>
-                    <Button className="w-full justify-start bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700">
+                    <Button 
+                      onClick={() => navigate('/social')}
+                      className="w-full justify-start bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                    >
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Create Social Post
                     </Button>
-                    <Button className="w-full justify-start bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700">
+                    <Button 
+                      onClick={() => navigate('/ai-tools')}
+                      className="w-full justify-start bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+                    >
                       <Bot className="w-4 h-4 mr-2" />
                       Generate with AI
                     </Button>
@@ -173,22 +218,30 @@ const Dashboard = () => {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center">
                     <ShoppingCart className="w-5 h-5 mr-2" />
-                    E-commerce Dashboard
+                    Your Shopping Activity
                   </CardTitle>
                   <CardDescription className="text-white/70">
-                    Manage your online store and track sales
+                    Track your purchases and cart items
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
+                  <div className="text-center py-8">
                     <ShoppingCart className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">E-commerce Module</h3>
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      {getItemCount() > 0 ? `${getItemCount()} items in cart` : 'Your cart is empty'}
+                    </h3>
                     <p className="text-white/70 mb-6">
-                      Complete product management, inventory tracking, and order processing coming soon.
+                      {getItemCount() > 0 
+                        ? `Total value: $${getTotalPrice().toFixed(2)}` 
+                        : 'Start shopping to see your items here'
+                      }
                     </p>
-                    <Badge variant="secondary" className="bg-white/20 text-white">
-                      Coming Soon
-                    </Badge>
+                    <Button 
+                      onClick={() => navigate('/shop')}
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                    >
+                      Go to Shop
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -199,22 +252,25 @@ const Dashboard = () => {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center">
                     <BookOpen className="w-5 h-5 mr-2" />
-                    Blog Management
+                    Blog Activity
                   </CardTitle>
                   <CardDescription className="text-white/70">
-                    Create and manage your content
+                    Discover and read amazing content
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
+                  <div className="text-center py-8">
                     <BookOpen className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">Blog CMS</h3>
+                    <h3 className="text-xl font-semibold text-white mb-2">Explore Our Blog</h3>
                     <p className="text-white/70 mb-6">
-                      Rich text editor, SEO optimization, and content analytics coming soon.
+                      Discover insights, tutorials, and stories from our community.
                     </p>
-                    <Badge variant="secondary" className="bg-white/20 text-white">
-                      Coming Soon
-                    </Badge>
+                    <Button 
+                      onClick={() => navigate('/blog')}
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                    >
+                      Read Articles
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -225,22 +281,30 @@ const Dashboard = () => {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center">
                     <MessageCircle className="w-5 h-5 mr-2" />
-                    Social Hub
+                    Your Social Activity
                   </CardTitle>
                   <CardDescription className="text-white/70">
-                    Connect and engage with your community
+                    Connect and engage with the community
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
+                  <div className="text-center py-8">
                     <MessageCircle className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">Social Features</h3>
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      {posts.length > 0 ? `You have ${posts.length} posts` : 'Start sharing your thoughts'}
+                    </h3>
                     <p className="text-white/70 mb-6">
-                      Real-time chat, posts, followers, and social analytics coming soon.
+                      {posts.length > 0 
+                        ? 'Keep engaging with the community!'
+                        : 'Join the conversation and share your ideas with others.'
+                      }
                     </p>
-                    <Badge variant="secondary" className="bg-white/20 text-white">
-                      Coming Soon
-                    </Badge>
+                    <Button 
+                      onClick={() => navigate('/social')}
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                    >
+                      Go to Social
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

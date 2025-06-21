@@ -38,7 +38,7 @@ const Social = () => {
         .from('social_posts')
         .select(`
           *,
-          profiles:user_id (
+          profiles!social_posts_user_id_fkey (
             full_name,
             username,
             avatar_url

@@ -1,16 +1,18 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Search, Filter, Star, Heart } from "lucide-react";
+import { ShoppingCart, Search, Filter } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
-import { useNavigate } from "react-router-dom";
+import ProductCard from "@/components/shop/ProductCard";
+import { useCart } from "@/components/shop/CartContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Shop = () => {
-  const navigate = useNavigate();
+  const { addToCart, getItemCount } = useCart();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
@@ -86,6 +88,14 @@ const Shop = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleAddToCart = (product: any) => {
+    addToCart(product);
+    toast({
+      title: "Added to Cart",
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <Navbar />
@@ -125,52 +135,22 @@ const Shop = () => {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2">
+            <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Cart ({getItemCount()})
+            </Button>
+          </div>
         </div>
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => (
-            <Card key={product.id} className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="p-0">
-                <div className="relative">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 bg-black/20 backdrop-blur-sm hover:bg-black/40"
-                  >
-                    <Heart className="w-4 h-4 text-white" />
-                  </Button>
-                  <Badge className="absolute top-2 left-2 bg-purple-500/80 text-white">
-                    {product.category}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                <CardTitle className="text-white mb-2">{product.name}</CardTitle>
-                <CardDescription className="text-white/70 mb-3">
-                  {product.description}
-                </CardDescription>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-white/80 ml-1">{product.rating}</span>
-                  </div>
-                  <span className="text-white/60">({product.reviews} reviews)</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-white">${product.price}</span>
-                  <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Add to Cart
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              onAddToCart={handleAddToCart}
+            />
           ))}
         </div>
 

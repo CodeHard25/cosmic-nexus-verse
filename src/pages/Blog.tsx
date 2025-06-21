@@ -5,19 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Calendar, User, MessageCircle, Heart, BookOpen } from "lucide-react";
+import { Search, Calendar, BookOpen } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
+import BlogCard from "@/components/blog/BlogCard";
+import BlogModal from "@/components/blog/BlogModal";
+import { useToast } from "@/hooks/use-toast";
 
 const Blog = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
 
-  // Mock blog data
-  const blogPosts = [
+  // Mock blog data with full content
+  const [blogPosts, setBlogPosts] = useState([
     {
       id: 1,
       title: "The Future of AI in Creative Industries",
       excerpt: "Exploring how artificial intelligence is revolutionizing creative workflows and empowering artists, writers, and designers to push the boundaries of innovation.",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      content: "Artificial Intelligence is transforming the creative landscape in unprecedented ways. From AI-powered design tools that can generate stunning visuals in seconds to writing assistants that help authors overcome writer's block, the integration of AI in creative industries is creating new possibilities for human expression. This technological revolution isn't replacing human creativity—it's amplifying it. Artists are now able to explore concepts and iterate on ideas faster than ever before, while maintaining their unique creative voice. The future holds even more exciting possibilities as AI continues to evolve and integrate more seamlessly into creative workflows.",
       author: {
         name: "Sarah Chen",
         avatar: "/placeholder.svg",
@@ -35,7 +41,7 @@ const Blog = () => {
       id: 2,
       title: "Building Sustainable E-commerce in 2025",
       excerpt: "A comprehensive guide to creating environmentally conscious online businesses that prioritize sustainability without compromising on growth.",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      content: "Sustainability in e-commerce is no longer just a trend—it's a necessity. As consumers become more environmentally conscious, businesses must adapt their practices to meet these expectations while maintaining profitability. This involves everything from eco-friendly packaging solutions to carbon-neutral shipping options. Successful sustainable e-commerce businesses are finding innovative ways to reduce their environmental impact while actually improving their bottom line. The key is to view sustainability not as a cost center, but as a competitive advantage that resonates with modern consumers.",
       author: {
         name: "Marcus Rodriguez",
         avatar: "/placeholder.svg",
@@ -53,7 +59,7 @@ const Blog = () => {
       id: 3,
       title: "The Art of Digital Storytelling",
       excerpt: "Mastering the craft of engaging your audience through compelling narratives in the digital age. Learn techniques used by top content creators.",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      content: "Digital storytelling combines the ancient art of narrative with modern technology to create compelling experiences that resonate with audiences across various platforms. Whether you're creating content for social media, building a brand narrative, or developing educational materials, the principles of good storytelling remain constant: character, conflict, and resolution. However, digital platforms offer unique opportunities to make stories interactive, immersive, and shareable. The most successful digital storytellers understand how to leverage these tools while staying true to the fundamental elements that make stories compelling.",
       author: {
         name: "Emma Thompson",
         avatar: "/placeholder.svg",
@@ -71,7 +77,7 @@ const Blog = () => {
       id: 4,
       title: "Cybersecurity Best Practices for Small Businesses",
       excerpt: "Essential security measures every small business should implement to protect against cyber threats and data breaches in today's digital landscape.",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      content: "Small businesses are increasingly becoming targets for cybercriminals, often because they lack the robust security infrastructure of larger corporations. However, implementing basic cybersecurity measures can significantly reduce the risk of data breaches and cyber attacks. This includes regular software updates, employee training on phishing recognition, multi-factor authentication, and regular data backups. The cost of prevention is always less than the cost of recovery from a cyber attack. By establishing a security-first culture and implementing these best practices, small businesses can protect themselves and their customers while building trust and credibility in the marketplace.",
       author: {
         name: "David Kim",
         avatar: "/placeholder.svg",
@@ -85,7 +91,7 @@ const Blog = () => {
       comments: 15,
       image: "/placeholder.svg"
     }
-  ];
+  ]);
 
   const categories = ["All", "Technology", "Business", "Creative", "Security"];
 
@@ -94,6 +100,23 @@ const Blog = () => {
     post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
     post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const handleLike = (id: number) => {
+    setBlogPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === id ? { ...post, likes: post.likes + 1 } : post
+      )
+    );
+    toast({
+      title: "Liked!",
+      description: "Thanks for liking this post!",
+    });
+  };
+
+  const handleReadMore = (post: any) => {
+    setSelectedPost(post);
+    setIsModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -181,7 +204,10 @@ const Blog = () => {
                     </span>
                   </div>
                 </div>
-                <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                <Button 
+                  onClick={() => handleReadMore(filteredPosts[0])}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                >
                   Read More
                 </Button>
               </CardContent>
@@ -192,58 +218,12 @@ const Blog = () => {
         {/* Blog Posts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPosts.slice(1).map((post) => (
-            <Card key={post.id} className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="p-0">
-                <div className="relative">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
-                  <Badge className="absolute top-2 left-2 bg-blue-500/80 text-white">
-                    {post.category}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                <CardTitle className="text-white mb-2 line-clamp-2">{post.title}</CardTitle>
-                <CardDescription className="text-white/70 mb-3 line-clamp-3">
-                  {post.excerpt}
-                </CardDescription>
-                
-                <div className="flex items-center gap-2 mb-3">
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={post.author.avatar} />
-                    <AvatarFallback className="text-xs">{post.author.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <span className="text-white/80 text-sm">{post.author.name}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-white/60 text-sm mb-3">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(post.publishedAt).toLocaleDateString()}
-                  </span>
-                  <span>{post.readTime}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-white/60 text-sm">
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-4 h-4" />
-                      {post.likes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="w-4 h-4" />
-                      {post.comments}
-                    </span>
-                  </div>
-                  <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10">
-                    Read More
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <BlogCard 
+              key={post.id} 
+              post={post} 
+              onLike={handleLike}
+              onReadMore={handleReadMore}
+            />
           ))}
         </div>
 
@@ -253,6 +233,13 @@ const Blog = () => {
           </div>
         )}
       </div>
+
+      <BlogModal 
+        post={selectedPost}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onLike={handleLike}
+      />
     </div>
   );
 };
