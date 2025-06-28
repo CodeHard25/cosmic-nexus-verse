@@ -80,9 +80,9 @@ const Friends = () => {
 
       setSuggestions(filteredSuggestions);
 
-      // Process requests
-      const sent = requestsData?.filter(r => r.sender_id === user.id) || [];
-      const received = requestsData?.filter(r => r.receiver_id === user.id && r.status === 'pending') || [];
+      // Process requests with proper typing
+      const sent = (requestsData?.filter(r => r.sender_id === user.id) || []) as FriendRequest[];
+      const received = (requestsData?.filter(r => r.receiver_id === user.id && r.status === 'pending') || []) as FriendRequest[];
 
       // Get profiles for requests
       const senderIds = received.map(r => r.sender_id);
