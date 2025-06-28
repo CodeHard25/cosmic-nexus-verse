@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface ChatRoom {
   id: string;
@@ -113,31 +113,16 @@ const Chat = () => {
     try {
       const { data: messagesData, error } = await supabase
         .from('messages')
-        .select('*')
+        .select(`
+          *,
+          sender:profiles(full_name, username, avatar_url)
+        `)
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      // Get sender profiles
-      const senderIds = messagesData?.map(m => m.sender_id) || [];
-      const uniqueSenderIds = [...new Set(senderIds)];
-
-      if (uniqueSenderIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', uniqueSenderIds);
-
-        const enrichedMessages = messagesData?.map(message => ({
-          ...message,
-          sender: profiles?.find(p => p.id === message.sender_id)
-        })) || [];
-
-        setMessages(enrichedMessages);
-      } else {
-        setMessages([]);
-      }
+      setMessages(messagesData || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -148,29 +133,49 @@ const Chat = () => {
     }
   };
 
+  const { sendMessage: sendWebSocketMessage, isConnected } = useWebSocket({
+    roomId: selectedRoom?.id || '',
+    onMessage: (data) => {
+      if (data.type === 'new_message') {
+        setMessages(prev => [...prev, data.message]);
+      }
+    }
+  });
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedRoom || !user) return;
 
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          room_id: selectedRoom.id,
-          sender_id: user.id,
-          content: newMessage.trim()
-        });
-
-      if (error) throw error;
-
-      setNewMessage("");
-      fetchMessages(selectedRoom.id);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive"
+    // Send via WebSocket for real-time delivery
+    if (isConnected) {
+      sendWebSocketMessage({
+        type: 'chat_message',
+        content: newMessage.trim(),
+        message_type: 'text'
       });
+      setNewMessage("");
+    } else {
+      // Fallback to direct database insert
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            room_id: selectedRoom.id,
+            sender_id: user.id,
+            content: newMessage.trim()
+          });
+
+        if (error) throw error;
+
+        setNewMessage("");
+        fetchMessages(selectedRoom.id);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send message",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -232,6 +237,9 @@ const Chat = () => {
                   <h3 className="text-white font-semibold flex items-center gap-2">
                     <MessageCircle className="w-5 h-5" />
                     Chats
+                    {isConnected && selectedRoom && (
+                      <div className="w-2 h-2 bg-green-400 rounded-full ml-auto" title="Connected" />
+                    )}
                   </h3>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -286,7 +294,7 @@ const Chat = () => {
                             {selectedRoom.is_group ? <Users className="w-4 h-4" /> : selectedRoom.other_user?.full_name?.[0] || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-white font-semibold">
                             {selectedRoom.is_group 
                               ? selectedRoom.name || 'Group Chat'
@@ -300,6 +308,12 @@ const Chat = () => {
                             }
                           </p>
                         </div>
+                        {isConnected && (
+                          <div className="flex items-center gap-2 text-green-400 text-sm">
+                            <div className="w-2 h-2 bg-green-400 rounded-full" />
+                            Live
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     

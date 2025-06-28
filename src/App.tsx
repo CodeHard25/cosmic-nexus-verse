@@ -14,6 +14,9 @@ import Blog from "@/pages/Blog";
 import Shop from "@/pages/Shop";
 import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
+import Pricing from "@/pages/Pricing";
+import PaymentSuccess from "@/pages/PaymentSuccess";
+import PaymentCanceled from "@/pages/PaymentCanceled";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +37,10 @@ function App() {
             <Route path="/blog" element={<Blog />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-canceled" element={<PaymentCanceled />} />
+            <Route path="/subscription-success" element={<PaymentSuccess />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
