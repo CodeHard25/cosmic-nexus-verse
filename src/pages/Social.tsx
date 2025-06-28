@@ -17,6 +17,7 @@ interface Post {
   likes_count: number;
   comments_count: number;
   created_at: string;
+  user_id: string;
   profiles?: {
     full_name?: string;
     username?: string;
@@ -34,23 +35,49 @@ const Social = () => {
 
   const fetchPosts = async () => {
     try {
-      const { data, error } = await supabase
+      // First get posts
+      const { data: postsData, error: postsError } = await supabase
         .from('social_posts')
-        .select(`
-          *,
-          profiles!social_posts_user_id_fkey (
-            full_name,
-            username,
-            avatar_url
-          ),
-          post_likes (
-            user_id
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setPosts(data || []);
+      if (postsError) throw postsError;
+
+      // Then get profiles for the users who made posts
+      const userIds = postsData?.map(post => post.user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Get likes for all posts
+      const postIds = postsData?.map(post => post.id) || [];
+      const { data: likesData, error: likesError } = await supabase
+        .from('post_likes')
+        .select('*')
+        .in('post_id', postIds);
+
+      if (likesError) throw likesError;
+
+      // Combine the data
+      const enrichedPosts = postsData?.map(post => {
+        const profile = profilesData?.find(p => p.id === post.user_id);
+        const postLikes = likesData?.filter(like => like.post_id === post.id) || [];
+        
+        return {
+          ...post,
+          profiles: profile ? {
+            full_name: profile.full_name,
+            username: profile.username,
+            avatar_url: profile.avatar_url
+          } : undefined,
+          post_likes: postLikes
+        };
+      }) || [];
+
+      setPosts(enrichedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -297,7 +324,7 @@ const Social = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleLikePost(post.id, isLiked)}
+                            onClick={() => handleLikePost(post.id, isLiked || false)}
                             className={`text-white/70 hover:text-white hover:bg-white/10 ${isLiked ? 'text-red-400' : ''}`}
                           >
                             <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
