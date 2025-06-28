@@ -111,18 +111,32 @@ const Chat = () => {
 
   const fetchMessages = async (roomId: string) => {
     try {
-      const { data: messagesData, error } = await supabase
+      // First get the messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:profiles(full_name, username, avatar_url)
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (messagesError) throw messagesError;
 
-      setMessages(messagesData || []);
+      // Then get the profile information for each unique sender
+      const senderIds = [...new Set(messagesData?.map(msg => msg.sender_id) || [])];
+      
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, avatar_url')
+        .in('id', senderIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine messages with profile data
+      const messagesWithProfiles = messagesData?.map(message => ({
+        ...message,
+        sender: profilesData?.find(profile => profile.id === message.sender_id)
+      })) || [];
+
+      setMessages(messagesWithProfiles);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
