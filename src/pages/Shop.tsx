@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShoppingCart, Search, Filter } from "lucide-react";
+import { Link } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
 import ProductCard from "@/components/shop/ProductCard";
 import { useCart } from "@/components/shop/CartContext";
@@ -136,9 +137,11 @@ const Shop = () => {
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
-            <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Cart ({getItemCount()})
+            <Button asChild className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+              <Link to="/cart" className="flex items-center space-x-2">
+                <ShoppingCart className="w-4 h-4" />
+                <span>Cart ({getItemCount()})</span>
+              </Link>
             </Button>
           </div>
         </div>

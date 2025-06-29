@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Home, Users, MessageCircle, User, Bot, ShoppingBag, BookOpen, Wrench, CreditCard, Sparkles } from "lucide-react";
+import { Menu, Home, Users, MessageCircle, User, Bot, ShoppingBag, BookOpen, Wrench, CreditCard, Sparkles, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/components/shop/CartContext";
 import { AuthButton } from "@/components/auth/AuthButton";
 
 const Navbar = () => {
@@ -12,6 +13,7 @@ const Navbar = () => {
   const [isVisible, setIsVisible] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const { getItemCount } = useCart();
 
   // Handle mouse movement to show/hide navbar
   useEffect(() => {
@@ -80,6 +82,17 @@ const Navbar = () => {
             </div>
 
             <div className="hidden md:flex items-center space-x-4">
+              <Button asChild variant="ghost" className="text-white hover:text-purple-300 relative">
+                <Link to="/cart" className="flex items-center space-x-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Cart</span>
+                  {getItemCount() > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {getItemCount()}
+                    </span>
+                  )}
+                </Link>
+              </Button>
               {user && (
                 <Button asChild variant="ghost" className="text-white hover:text-purple-300">
                   <Link to="/profile" className="flex items-center space-x-2">
@@ -120,6 +133,22 @@ const Navbar = () => {
                         </Button>
                       );
                     })}
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className="justify-start text-white hover:bg-white/10 relative"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <Link to="/cart" className="flex items-center space-x-2">
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>Cart</span>
+                        {getItemCount() > 0 && (
+                          <span className="ml-auto bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                            {getItemCount()}
+                          </span>
+                        )}
+                      </Link>
+                    </Button>
                     {user && (
                       <Button
                         asChild
