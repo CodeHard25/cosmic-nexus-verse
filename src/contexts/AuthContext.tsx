@@ -57,16 +57,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const initializeUserRole = async (userId: string) => {
     try {
-      // Check if user already has a role
-      const { data: existingRole } = await supabase
+      // Check if user already has a role using untyped query
+      const { data: existingRole } = await (supabase as any)
         .from('user_roles')
         .select('id')
         .eq('user_id', userId)
         .single();
 
-      // If no role exists, the trigger should have created one, but let's double-check
+      // If no role exists, create one
       if (!existingRole) {
-        await supabase
+        await (supabase as any)
           .from('user_roles')
           .insert({ user_id: userId, role: 'user' });
       }
