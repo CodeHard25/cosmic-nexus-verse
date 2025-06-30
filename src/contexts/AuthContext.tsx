@@ -34,6 +34,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Initialize user role if this is a new user
+        if (event === 'SIGNED_IN' && session?.user) {
+          setTimeout(() => {
+            initializeUserRole(session.user.id);
+          }, 0);
+        }
       }
     );
 
@@ -48,12 +55,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const initializeUserRole = async (userId: string) => {
+    try {
+      // Check if user already has a role
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      // If no role exists, the trigger should have created one, but let's double-check
+      if (!existingRole) {
+        await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: 'user' });
+      }
+    } catch (error) {
+      console.error('Error initializing user role:', error);
+    }
+  };
+
   const signInWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/social`,
+          redirectTo: `${window.location.origin}/dashboard`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

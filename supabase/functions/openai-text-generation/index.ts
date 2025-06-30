@@ -29,30 +29,32 @@ serve(async (req) => {
     const user = data.user;
     if (!user) throw new Error('User not authenticated');
 
-    const { prompt, size = "1024x1024", quality = "standard" } = await req.json();
+    const { prompt, type = 'text' } = await req.json();
 
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    const systemPrompts = {
+      text: 'You are a helpful AI assistant that generates high-quality text content.',
+      code: 'You are an expert software developer. Generate clean, well-documented code with best practices. Always include comments explaining the code.'
+    };
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: prompt,
-        n: 1,
-        size: size,
-        quality: quality,
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompts[type as keyof typeof systemPrompts] || systemPrompts.text },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
     const data_response = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data_response.error?.message || 'Failed to generate image');
-    }
-
-    const imageUrl = data_response.data[0].url;
+    const generatedText = data_response.choices[0].message.content;
 
     // Log the generation
     const supabaseService = createClient(
@@ -62,17 +64,17 @@ serve(async (req) => {
 
     await supabaseService.from('ai_generations').insert({
       user_id: user.id,
-      type: 'image',
+      type: type,
       prompt: prompt,
-      image_url: imageUrl,
-      tokens_used: 1 // DALL-E uses credit system
+      result: generatedText,
+      tokens_used: data_response.usage?.total_tokens || 0
     });
 
-    return new Response(JSON.stringify({ imageUrl }), {
+    return new Response(JSON.stringify({ generatedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in generate-image function:', error);
+    console.error('Error in openai-text-generation function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
