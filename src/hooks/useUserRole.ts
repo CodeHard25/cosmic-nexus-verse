@@ -19,8 +19,7 @@ export const useUserRole = () => {
       }
 
       try {
-        // Use untyped query since user_roles table isn't in types yet
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)

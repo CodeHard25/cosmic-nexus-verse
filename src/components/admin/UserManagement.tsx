@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,14 +33,14 @@ export const UserManagement = () => {
 
       if (profilesError) throw profilesError;
 
-      // Then get user roles separately since user_roles table might not be in types yet
-      const { data: rolesData, error: rolesError } = await (supabase as any)
+      // Then get user roles
+      const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
-        // If roles table doesn't exist, show users with default role
+        // If roles query fails, show users with default role
         const formattedUsers = profilesData?.map((user: any) => ({
           id: user.id,
           email: 'No email available',
@@ -82,13 +81,13 @@ export const UserManagement = () => {
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
       // Use upsert to handle cases where user doesn't have a role record yet
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('user_roles')
         .upsert({ 
           user_id: userId, 
-          role: newRole 
+          role: newRole as 'admin' | 'moderator' | 'user'
         }, { 
-          onConflict: 'user_id,role' 
+          onConflict: 'user_id' 
         });
 
       if (error) throw error;

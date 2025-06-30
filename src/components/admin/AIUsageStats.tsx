@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,14 +27,12 @@ export const AIUsageStats = () => {
 
   const fetchStats = async () => {
     try {
-      // Use untyped query since ai_generations table isn't in types yet
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('ai_generations')
         .select('type, tokens_used');
 
       if (error) {
         console.error('Error fetching AI stats:', error);
-        // Set default stats if table doesn't exist yet
         setStats({
           totalGenerations: 0,
           textGenerations: 0,
