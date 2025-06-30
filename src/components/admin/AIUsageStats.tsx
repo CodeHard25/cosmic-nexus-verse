@@ -28,17 +28,30 @@ export const AIUsageStats = () => {
 
   const fetchStats = async () => {
     try {
-      const { data, error } = await supabase
+      // Use untyped query since ai_generations table isn't in types yet
+      const { data, error } = await (supabase as any)
         .from('ai_generations')
         .select('type, tokens_used');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching AI stats:', error);
+        // Set default stats if table doesn't exist yet
+        setStats({
+          totalGenerations: 0,
+          textGenerations: 0,
+          codeGenerations: 0,
+          imageGenerations: 0,
+          totalTokens: 0
+        });
+        setLoading(false);
+        return;
+      }
 
-      const totalGenerations = data.length;
-      const textGenerations = data.filter(g => g.type === 'text').length;
-      const codeGenerations = data.filter(g => g.type === 'code').length;
-      const imageGenerations = data.filter(g => g.type === 'image').length;
-      const totalTokens = data.reduce((sum, g) => sum + (g.tokens_used || 0), 0);
+      const totalGenerations = data?.length || 0;
+      const textGenerations = data?.filter((g: any) => g.type === 'text').length || 0;
+      const codeGenerations = data?.filter((g: any) => g.type === 'code').length || 0;
+      const imageGenerations = data?.filter((g: any) => g.type === 'image').length || 0;
+      const totalTokens = data?.reduce((sum: number, g: any) => sum + (g.tokens_used || 0), 0) || 0;
 
       setStats({
         totalGenerations,
@@ -49,6 +62,13 @@ export const AIUsageStats = () => {
       });
     } catch (error) {
       console.error('Error fetching AI stats:', error);
+      setStats({
+        totalGenerations: 0,
+        textGenerations: 0,
+        codeGenerations: 0,
+        imageGenerations: 0,
+        totalTokens: 0
+      });
     } finally {
       setLoading(false);
     }

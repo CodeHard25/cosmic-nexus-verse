@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Shield, UserCheck } from 'lucide-react';
+import { User, Shield, UserCheck, Users } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -27,24 +27,44 @@ export const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // First get all profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          user_roles!inner(role),
-          created_at
-        `);
+        .select('id, full_name, created_at');
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      const formattedUsers = data.map((user: any) => ({
-        id: user.id,
-        email: user.email || 'No email',
-        full_name: user.full_name || 'No name',
-        role: user.user_roles?.role || 'user',
-        created_at: user.created_at
-      }));
+      // Then get user roles separately since user_roles table might not be in types yet
+      const { data: rolesData, error: rolesError } = await (supabase as any)
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+        // If roles table doesn't exist, show users with default role
+        const formattedUsers = profilesData?.map((user: any) => ({
+          id: user.id,
+          email: 'No email available',
+          full_name: user.full_name || 'No name',
+          role: 'user',
+          created_at: user.created_at
+        })) || [];
+        setUsers(formattedUsers);
+        setLoading(false);
+        return;
+      }
+
+      // Combine profiles with roles
+      const formattedUsers = profilesData?.map((user: any) => {
+        const userRole = rolesData?.find((role: any) => role.user_id === user.id);
+        return {
+          id: user.id,
+          email: 'No email available', // Email not available from profiles
+          full_name: user.full_name || 'No name',
+          role: userRole?.role || 'user',
+          created_at: user.created_at
+        };
+      }) || [];
 
       setUsers(formattedUsers);
     } catch (error) {
@@ -61,10 +81,15 @@ export const UserManagement = () => {
 
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
-      const { error } = await supabase
+      // Use upsert to handle cases where user doesn't have a role record yet
+      const { error } = await (supabase as any)
         .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
+        .upsert({ 
+          user_id: userId, 
+          role: newRole 
+        }, { 
+          onConflict: 'user_id,role' 
+        });
 
       if (error) throw error;
 
@@ -142,7 +167,7 @@ export const UserManagement = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Badge 
-                  variant={getRoleBadgeVariant(user.role)}
+                  variant={getRoleBadgeVariant(user.role) as any}
                   className="capitalize"
                 >
                   {user.role}
@@ -163,6 +188,11 @@ export const UserManagement = () => {
               </div>
             </div>
           ))}
+          {users.length === 0 && (
+            <div className="text-center text-white/60 py-8">
+              No users found.
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

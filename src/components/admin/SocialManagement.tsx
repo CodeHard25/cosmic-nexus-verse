@@ -36,12 +36,37 @@ export const SocialManagement = () => {
           likes_count,
           comments_count,
           created_at,
-          profiles!inner(full_name)
+          user_id
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts(data || []);
+
+      // Fetch user profiles separately
+      const userIds = data?.map(post => post.user_id) || [];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine posts with profiles
+      const postsWithProfiles = data?.map(post => {
+        const profile = profiles?.find(p => p.id === post.user_id);
+        return {
+          id: post.id,
+          content: post.content,
+          likes_count: post.likes_count || 0,
+          comments_count: post.comments_count || 0,
+          created_at: post.created_at,
+          profiles: {
+            full_name: profile?.full_name || 'Unknown User'
+          }
+        };
+      }) || [];
+
+      setPosts(postsWithProfiles);
     } catch (error) {
       console.error('Error fetching posts:', error);
       toast({
