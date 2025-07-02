@@ -159,7 +159,7 @@ const PostsFeed = ({
                     <Input
                       placeholder="Add a comment..."
                       value={newComment[post.id] || ''}
-                      onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                      onChange={(e) => setNewComment({ ...newComment, [post.id]: e.target.value })}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                       onKeyPress={(e) => e.key === 'Enter' && onAddComment(post.id)}
                     />

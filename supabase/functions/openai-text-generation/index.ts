@@ -1,7 +1,6 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,27 +13,12 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = process.env.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY');
+    const openAIApiKey = (process.env.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY'));
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const authHeader = req.headers.get('Authorization')!;
-    const supabaseClient = createClient(
-      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
-      process.env.SUPABASE_ANON_KEY || Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
-    const { data } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
-    const user = data.user;
-    if (!user) throw new Error('User not authenticated');
-
-    const { prompt, type = 'text' } = await req.json();
-
-    const systemPrompts = {
-      text: 'You are a helpful AI assistant that generates high-quality text content.',
-      code: 'You are an expert software developer. Generate clean, well-documented code with best practices. Always include comments explaining the code.'
-    };
+    const { prompt } = await req.json();
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -43,31 +27,21 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
-          { role: 'system', content: systemPrompts[type as keyof typeof systemPrompts] || systemPrompts.text },
+          { role: 'system', content: 'You are a helpful assistant that generates content based on user prompts.' },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
       }),
     });
 
-    const data_response = await response.json();
-    const generatedText = data_response.choices[0].message.content;
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Failed to generate text');
+    }
 
-    const supabaseService = createClient(
-      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    await supabaseService.from('ai_generations').insert({
-      user_id: user.id,
-      type: type,
-      prompt: prompt,
-      result: generatedText,
-      tokens_used: data_response.usage?.total_tokens || 0
-    });
+    const generatedText = data.choices[0].message.content;
 
     return new Response(JSON.stringify({ generatedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

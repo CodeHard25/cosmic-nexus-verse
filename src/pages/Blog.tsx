@@ -1,15 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Calendar, BookOpen } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
-import BlogCard from "@/components/blog/BlogCard";
 import BlogModal from "@/components/blog/BlogModal";
-import { CreateBlogModal } from "@/components/blog/CreateBlogModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
