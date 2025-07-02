@@ -6,7 +6,7 @@ import { Calendar, BookOpen, Heart, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BlogPost {
-  id: number;
+  id: string;
   title: string;
   excerpt: string;
   content: string;
@@ -28,7 +28,7 @@ interface BlogModalProps {
   post: BlogPost | null;
   isOpen: boolean;
   onClose: () => void;
-  onLike: (id: number) => void;
+  onLike: (id: string) => void;
 }
 
 const BlogModal = ({ post, isOpen, onClose, onLike }: BlogModalProps) => {
