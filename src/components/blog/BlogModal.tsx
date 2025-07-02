@@ -11,9 +11,8 @@ interface BlogPost {
   excerpt: string;
   content: string;
   author: {
-    name: string;
-    avatar: string;
-    role: string;
+    full_name: string;
+    avatar_url?: string;
   };
   publishedAt: string;
   readTime: string;
@@ -51,12 +50,12 @@ const BlogModal = ({ post, isOpen, onClose, onLike }: BlogModalProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="w-10 h-10">
-                <AvatarImage src={post.author.avatar} />
-                <AvatarFallback>{post.author.name[0]}</AvatarFallback>
+                <AvatarImage src={post.author.avatar_url} />
+                <AvatarFallback>{post.author.full_name[0]}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-white font-medium">{post.author.name}</p>
-                <p className="text-white/60 text-sm">{post.author.role}</p>
+                <p className="text-white font-medium">{post.author.full_name}</p>
+                <p className="text-white/60 text-sm">Community Member</p>
               </div>
             </div>
             <div className="flex items-center gap-4 text-white/60 text-sm">
