@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Home, Users, MessageCircle, User, Bot, ShoppingBag, BookOpen, Wrench, CreditCard, Sparkles, ShoppingCart } from "lucide-react";
+import { Menu, Home, Users, MessageCircle, User, Bot, ShoppingBag, BookOpen, CreditCard, Sparkles, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/components/shop/CartContext";
 import { AuthButton } from "@/components/auth/AuthButton";
@@ -36,7 +36,6 @@ const Navbar = () => {
     { name: "Friends", href: "/friends", icon: Users },
     { name: "Chat", href: "/chat", icon: MessageCircle },
     { name: "AI Chat", href: "/ai-chat", icon: Bot },
-    { name: "AI Tools", href: "/ai-tools", icon: Wrench },
     { name: "Blog", href: "/blog", icon: BookOpen },
     { name: "Shop", href: "/shop", icon: ShoppingBag },
     { name: "Pricing", href: "/pricing", icon: CreditCard }

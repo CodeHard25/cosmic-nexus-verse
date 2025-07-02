@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Image, Video, Smile, Send, Users, TrendingUp } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,12 +27,28 @@ interface Post {
   post_likes?: { user_id: string }[];
 }
 
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles?: {
+    full_name?: string;
+    username?: string;
+    avatar_url?: string;
+  };
+}
+
 const Social = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [newPost, setNewPost] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
+  const [showComments, setShowComments] = useState<{ [key: string]: boolean }>({});
+  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
+  const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
 
   const fetchPosts = async () => {
     try {
@@ -85,8 +102,55 @@ const Social = () => {
     }
   };
 
+  const fetchSuggestedUsers = async () => {
+    try {
+      const { data: newUsers, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setSuggestedUsers(newUsers || []);
+    } catch (error) {
+      console.error('Error fetching suggested users:', error);
+    }
+  };
+
+  const fetchComments = async (postId: string) => {
+    try {
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('post_comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (commentsError) throw commentsError;
+
+      // Get profiles for comment authors
+      const userIds = commentsData?.map(comment => comment.user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine comments with profiles
+      const enrichedComments = commentsData?.map(comment => ({
+        ...comment,
+        profiles: profilesData?.find(p => p.id === comment.user_id)
+      })) || [];
+
+      setComments(prev => ({ ...prev, [postId]: enrichedComments }));
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
   useEffect(() => {
     fetchPosts();
+    fetchSuggestedUsers();
   }, []);
 
   const handleCreatePost = async () => {
@@ -144,37 +208,69 @@ const Social = () => {
     }
   };
 
-  // Mock data for trending and suggestions (replace with real data later)
+  const handleToggleComments = (postId: string) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+    if (!comments[postId]) {
+      fetchComments(postId);
+    }
+  };
+
+  const handleAddComment = async (postId: string) => {
+    if (!newComment[postId]?.trim() || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('post_comments')
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          content: newComment[postId]
+        });
+
+      if (error) throw error;
+
+      setNewComment(prev => ({ ...prev, [postId]: '' }));
+      fetchComments(postId);
+      
+      // Update comment count
+      await supabase
+        .from('social_posts')
+        .update({ comments_count: (comments[postId]?.length || 0) + 1 })
+        .eq('id', postId);
+      
+      fetchPosts();
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleShare = (postId: string) => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Check out this post',
+        url: window.location.href
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link copied!",
+        description: "Post link copied to clipboard",
+      });
+    }
+  };
+
+  // Mock data for trending topics
   const trendingTopics = [
     { name: "#AIRevolution", posts: "12.3K posts" },
     { name: "#WebDevelopment", posts: "8.7K posts" },
     { name: "#StartupLife", posts: "5.4K posts" },
     { name: "#DesignTrends", posts: "3.2K posts" },
     { name: "#TechNews", posts: "15.6K posts" }
-  ];
-
-  const suggestedUsers = [
-    {
-      name: "John Doe",
-      username: "@johndoe",
-      avatar: "/placeholder.svg",
-      followers: "2.3K",
-      bio: "Full-stack developer & AI enthusiast"
-    },
-    {
-      name: "Marie Claire",
-      username: "@marieclaire",
-      avatar: "/placeholder.svg",
-      followers: "1.8K",
-      bio: "UX Designer at TechCorp"
-    },
-    {
-      name: "DevGuru",
-      username: "@devguru",
-      avatar: "/placeholder.svg",
-      followers: "5.1K",
-      bio: "Teaching code to the world"
-    }
   ];
 
   return (
@@ -206,21 +302,20 @@ const Social = () => {
               <CardHeader>
                 <h3 className="text-white font-semibold flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Suggested for You
+                  New Users
                 </h3>
               </CardHeader>
               <CardContent className="space-y-4">
                 {suggestedUsers.map((suggestedUser, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={suggestedUser.avatar} />
-                      <AvatarFallback>{suggestedUser.name[0]}</AvatarFallback>
+                      <AvatarImage src={suggestedUser.avatar_url} />
+                      <AvatarFallback>{suggestedUser.full_name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium text-sm">{suggestedUser.name}</p>
-                      <p className="text-white/60 text-xs">{suggestedUser.username}</p>
-                      <p className="text-white/50 text-xs mt-1 line-clamp-2">{suggestedUser.bio}</p>
-                      <p className="text-white/60 text-xs">{suggestedUser.followers} followers</p>
+                      <p className="text-white font-medium text-sm">{suggestedUser.full_name || 'Unknown User'}</p>
+                      <p className="text-white/60 text-xs">@{suggestedUser.username || 'user'}</p>
+                      <p className="text-white/60 text-xs">Joined recently</p>
                     </div>
                     <Button size="sm" variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10">
                       Follow
@@ -331,16 +426,64 @@ const Social = () => {
                             {post.likes_count}
                           </Button>
                           
-                          <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={() => handleToggleComments(post.id)}
+                          >
                             <MessageCircle className="w-4 h-4 mr-2" />
                             {post.comments_count}
                           </Button>
                           
-                          <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={() => handleShare(post.id)}
+                          >
                             <Share2 className="w-4 h-4 mr-2" />
                             Share
                           </Button>
                         </div>
+
+                        {/* Comments Section */}
+                        {showComments[post.id] && (
+                          <div className="mt-4 pt-4 border-t border-white/10">
+                            <div className="space-y-3 mb-4">
+                              {comments[post.id]?.map((comment) => (
+                                <div key={comment.id} className="flex gap-3">
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src={comment.profiles?.avatar_url} />
+                                    <AvatarFallback>{comment.profiles?.full_name?.[0] || 'U'}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 bg-white/5 rounded-lg p-3">
+                                    <p className="text-white text-sm font-medium">{comment.profiles?.full_name || 'Unknown User'}</p>
+                                    <p className="text-white/80 text-sm">{comment.content}</p>
+                                    <p className="text-white/50 text-xs mt-1">{new Date(comment.created_at).toLocaleTimeString()}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Add a comment..."
+                                value={newComment[post.id] || ''}
+                                onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                                onKeyPress={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddComment(post.id)}
+                                disabled={!newComment[post.id]?.trim()}
+                                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );

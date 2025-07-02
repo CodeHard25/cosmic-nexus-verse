@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,29 +41,51 @@ const AiChat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = newMessage;
     setNewMessage("");
     setLoading(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('openai-chat', {
         body: { 
-          message: newMessage,
+          message: currentMessage,
           isCodeRequest 
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function error:', error);
+        throw error;
+      }
 
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: data.response || data.message || 'No response received',
         isUser: false,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
+      // Track AI generation
+      await supabase
+        .from('ai_generations')
+        .insert({
+          user_id: user?.id,
+          type: isCodeRequest ? 'code' : 'text',
+          tokens_used: data.tokens_used || 0
+        });
+
     } catch (error) {
       console.error('Error sending message:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: 'Sorry, I encountered an error. Please try again.',
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -78,28 +100,40 @@ const AiChat = () => {
     if (!imagePrompt.trim()) return;
 
     setGeneratingImage(true);
+    const currentPrompt = imagePrompt;
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: { 
-          prompt: imagePrompt,
-          size: "1024x1024",
-          model: "gpt-image-1"
+          prompt: currentPrompt,
+          size: "1024x1024"
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Image generation error:', error);
+        throw error;
+      }
 
       const imageMessage: ChatMessage = {
         id: Date.now().toString(),
-        content: `Generated image: "${imagePrompt}"`,
+        content: `Generated image: "${currentPrompt}"`,
         isUser: false,
         timestamp: new Date(),
-        imageUrl: data.imageUrl
+        imageUrl: data.imageUrl || data.url
       };
 
       setMessages(prev => [...prev, imageMessage]);
       setImagePrompt("");
+
+      // Track AI generation
+      await supabase
+        .from('ai_generations')
+        .insert({
+          user_id: user?.id,
+          type: 'image',
+          tokens_used: 0
+        });
 
       toast({
         title: "Success",
@@ -190,6 +224,22 @@ const AiChat = () => {
                             </div>
                           </div>
                         ))}
+                        {loading && (
+                          <div className="flex justify-start">
+                            <div className="flex gap-3 max-w-[80%]">
+                              <Avatar className="w-8 h-8">
+                                <AvatarFallback><Bot className="w-4 h-4" /></AvatarFallback>
+                              </Avatar>
+                              <div className="bg-white/20 rounded-lg p-3">
+                                <div className="flex space-x-1">
+                                  <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce"></div>
+                                  <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                  <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </ScrollArea>
                     
@@ -248,7 +298,11 @@ const AiChat = () => {
                           disabled={!imagePrompt.trim() || generatingImage}
                           className="bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
                         >
-                          <ImageIcon className="w-4 h-4" />
+                          {generatingImage ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-4 h-4" />
+                          )}
                         </Button>
                       </div>
                     </TabsContent>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -64,11 +65,19 @@ const Chat = () => {
         .from('chat_participants')
         .select(`
           room_id,
-          chat_rooms (*)
+          chat_rooms (
+            id,
+            name,
+            is_group,
+            created_at
+          )
         `)
         .eq('user_id', user.id);
 
-      if (participantError) throw participantError;
+      if (participantError) {
+        console.error('Error fetching participants:', participantError);
+        return;
+      }
 
       const rooms = participantData?.map(p => p.chat_rooms).filter(Boolean) || [];
 
@@ -77,14 +86,24 @@ const Chat = () => {
         rooms.map(async (room: any) => {
           if (!room.is_group) {
             // Get the other participant
-            const { data: otherParticipants } = await supabase
+            const { data: otherParticipants, error } = await supabase
               .from('chat_participants')
               .select(`
                 user_id,
-                profiles (*)
+                profiles (
+                  id,
+                  full_name,
+                  username,
+                  avatar_url
+                )
               `)
               .eq('room_id', room.id)
               .neq('user_id', user.id);
+
+            if (error) {
+              console.error('Error fetching other participants:', error);
+              return room;
+            }
 
             const otherUser = otherParticipants?.[0]?.profiles;
             return {
@@ -118,7 +137,10 @@ const Chat = () => {
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        return;
+      }
 
       // Then get the profile information for each unique sender
       const senderIds = [...new Set(messagesData?.map(msg => msg.sender_id) || [])];
@@ -128,7 +150,10 @@ const Chat = () => {
         .select('id, full_name, username, avatar_url')
         .in('id', senderIds);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        return;
+      }
 
       // Combine messages with profile data
       const messagesWithProfiles = messagesData?.map(message => ({
@@ -159,37 +184,34 @@ const Chat = () => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedRoom || !user) return;
 
-    // Send via WebSocket for real-time delivery
-    if (isConnected) {
-      sendWebSocketMessage({
-        type: 'chat_message',
-        content: newMessage.trim(),
-        message_type: 'text'
-      });
-      setNewMessage("");
-    } else {
-      // Fallback to direct database insert
-      try {
-        const { error } = await supabase
-          .from('messages')
-          .insert({
-            room_id: selectedRoom.id,
-            sender_id: user.id,
-            content: newMessage.trim()
-          });
+    const messageContent = newMessage.trim();
+    setNewMessage("");
 
-        if (error) throw error;
-
-        setNewMessage("");
-        fetchMessages(selectedRoom.id);
-      } catch (error) {
-        console.error('Error sending message:', error);
-        toast({
-          title: "Error",
-          description: "Failed to send message",
-          variant: "destructive"
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          room_id: selectedRoom.id,
+          sender_id: user.id,
+          content: messageContent
         });
+
+      if (error) {
+        console.error('Error sending message:', error);
+        throw error;
       }
+
+      // Refresh messages to show the new one
+      fetchMessages(selectedRoom.id);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
+      // Restore the message if it failed
+      setNewMessage(messageContent);
     }
   };
 
@@ -258,38 +280,44 @@ const Chat = () => {
                 </CardHeader>
                 <CardContent className="p-0">
                   <ScrollArea className="h-[calc(100vh-12rem)]">
-                    {chatRooms.map((room) => (
-                      <div
-                        key={room.id}
-                        onClick={() => setSelectedRoom(room)}
-                        className={`p-4 cursor-pointer border-b border-white/10 hover:bg-white/5 ${
-                          selectedRoom?.id === room.id ? 'bg-white/10' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={room.other_user?.avatar_url} />
-                            <AvatarFallback>
-                              {room.is_group ? <Users className="w-4 h-4" /> : room.other_user?.full_name?.[0] || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium truncate">
-                              {room.is_group 
-                                ? room.name || 'Group Chat'
-                                : room.other_user?.full_name || 'Unknown User'
-                              }
-                            </p>
-                            <p className="text-white/60 text-sm truncate">
-                              {room.is_group 
-                                ? 'Group conversation'
-                                : `@${room.other_user?.username || 'user'}`
-                              }
-                            </p>
+                    {chatRooms.length === 0 ? (
+                      <div className="p-4 text-center text-white/60">
+                        No chat rooms yet. Accept friend requests to start chatting!
+                      </div>
+                    ) : (
+                      chatRooms.map((room) => (
+                        <div
+                          key={room.id}
+                          onClick={() => setSelectedRoom(room)}
+                          className={`p-4 cursor-pointer border-b border-white/10 hover:bg-white/5 ${
+                            selectedRoom?.id === room.id ? 'bg-white/10' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={room.other_user?.avatar_url} />
+                              <AvatarFallback>
+                                {room.is_group ? <Users className="w-4 h-4" /> : room.other_user?.full_name?.[0] || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white font-medium truncate">
+                                {room.is_group 
+                                  ? room.name || 'Group Chat'
+                                  : room.other_user?.full_name || 'Unknown User'
+                                }
+                              </p>
+                              <p className="text-white/60 text-sm truncate">
+                                {room.is_group 
+                                  ? 'Group conversation'
+                                  : `@${room.other_user?.username || 'user'}`
+                                }
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </ScrollArea>
                 </CardContent>
               </Card>
@@ -334,29 +362,35 @@ const Chat = () => {
                     <CardContent className="flex-1 p-4 flex flex-col">
                       <ScrollArea className="flex-1 pr-4">
                         <div className="space-y-4">
-                          {messages.map((message) => (
-                            <div
-                              key={message.id}
-                              className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div className={`flex gap-2 max-w-[70%] ${message.sender_id === user?.id ? 'flex-row-reverse' : ''}`}>
-                                <Avatar className="w-8 h-8">
-                                  <AvatarImage src={message.sender?.avatar_url} />
-                                  <AvatarFallback>{message.sender?.full_name?.[0] || 'U'}</AvatarFallback>
-                                </Avatar>
-                                <div className={`rounded-lg p-3 ${
-                                  message.sender_id === user?.id 
-                                    ? 'bg-gradient-to-r from-purple-500 to-blue-500' 
-                                    : 'bg-white/20'
-                                }`}>
-                                  <p className="text-white text-sm">{message.content}</p>
-                                  <p className="text-white/60 text-xs mt-1">
-                                    {new Date(message.created_at).toLocaleTimeString()}
-                                  </p>
+                          {messages.length === 0 ? (
+                            <div className="text-center text-white/60 py-8">
+                              Start the conversation!
+                            </div>
+                          ) : (
+                            messages.map((message) => (
+                              <div
+                                key={message.id}
+                                className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                              >
+                                <div className={`flex gap-2 max-w-[70%] ${message.sender_id === user?.id ? 'flex-row-reverse' : ''}`}>
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src={message.sender?.avatar_url} />
+                                    <AvatarFallback>{message.sender?.full_name?.[0] || 'U'}</AvatarFallback>
+                                  </Avatar>
+                                  <div className={`rounded-lg p-3 ${
+                                    message.sender_id === user?.id 
+                                      ? 'bg-gradient-to-r from-purple-500 to-blue-500' 
+                                      : 'bg-white/20'
+                                  }`}>
+                                    <p className="text-white text-sm">{message.content}</p>
+                                    <p className="text-white/60 text-xs mt-1">
+                                      {new Date(message.created_at).toLocaleTimeString()}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            ))
+                          )}
                           <div ref={messagesEndRef} />
                         </div>
                       </ScrollArea>
@@ -384,6 +418,9 @@ const Chat = () => {
                     <div className="text-center text-white/70">
                       <MessageCircle className="w-12 h-12 mx-auto mb-4" />
                       <p>Select a chat to start messaging</p>
+                      {chatRooms.length === 0 && (
+                        <p className="text-sm mt-2">Accept friend requests to start chatting!</p>
+                      )}
                     </div>
                   </div>
                 )}
