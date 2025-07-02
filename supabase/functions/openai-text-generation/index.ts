@@ -14,15 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openAIApiKey = process.env.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
     const authHeader = req.headers.get('Authorization')!;
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
+      process.env.SUPABASE_ANON_KEY || Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
     const { data } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
@@ -56,10 +56,9 @@ serve(async (req) => {
     const data_response = await response.json();
     const generatedText = data_response.choices[0].message.content;
 
-    // Log the generation
     const supabaseService = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     await supabaseService.from('ai_generations').insert({

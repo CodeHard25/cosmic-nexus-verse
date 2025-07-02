@@ -14,15 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openAIApiKey = process.env.OPENAI_API_KEY || Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
     const authHeader = req.headers.get('Authorization')!;
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
+      process.env.SUPABASE_ANON_KEY || Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
     const { data } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
@@ -38,7 +38,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1,
         size: size,
@@ -54,10 +54,9 @@ serve(async (req) => {
 
     const imageUrl = data_response.data[0].url;
 
-    // Log the generation
     const supabaseService = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      process.env.SUPABASE_URL || Deno.env.get('SUPABASE_URL') ?? '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     await supabaseService.from('ai_generations').insert({
@@ -65,7 +64,7 @@ serve(async (req) => {
       type: 'image',
       prompt: prompt,
       image_url: imageUrl,
-      tokens_used: 1 // DALL-E uses credit system
+      tokens_used: 1
     });
 
     return new Response(JSON.stringify({ imageUrl }), {

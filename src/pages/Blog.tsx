@@ -13,6 +13,10 @@ import { CreateBlogModal } from "@/components/blog/CreateBlogModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import BlogHeader from "@/components/blog/BlogHeader";
+import BlogFilters from "@/components/blog/BlogFilters";
+import FeaturedBlogCard from "@/components/blog/FeaturedBlogCard";
+import BlogPostsGrid from "@/components/blog/BlogPostsGrid";
 
 interface BlogPost {
   id: string;
@@ -78,12 +82,12 @@ const Blog = () => {
           full_name: blog.profiles?.full_name || 'Unknown Author',
           avatar_url: blog.profiles?.avatar_url
         },
-        likes: Math.floor(Math.random() * 300) + 50, // Mock data for now
-        comments: Math.floor(Math.random() * 50) + 5, // Mock data for now
+        likes: Math.floor(Math.random() * 300) + 50,
+        comments: Math.floor(Math.random() * 50) + 5,
         readTime: `${Math.floor(blog.content.length / 200) + 1} min read`,
-        category: "Technology", // Mock data for now
-        tags: ["Blog", "Community"], // Mock data for now
-        image: "/placeholder.svg" // Mock data for now
+        category: "Technology",
+        tags: ["Blog", "Community"],
+        image: "/placeholder.svg"
       })) || [];
 
       setBlogPosts(formattedBlogs);
@@ -137,128 +141,26 @@ const Blog = () => {
       <Navbar />
       
       <div className="container mx-auto px-4 pt-24 pb-16">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-4">
-            UniVerse Blog
-          </h1>
-          <p className="text-xl text-white/70 max-w-2xl mx-auto mb-6">
-            Insights, tutorials, and stories from our community of innovators
-          </p>
-          {user && (
-            <CreateBlogModal onBlogCreated={fetchBlogs} />
-          )}
-        </div>
+        <BlogHeader user={user} onBlogCreated={fetchBlogs} />
+        
+        <BlogFilters 
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          categories={categories}
+        />
 
-        {/* Search and Categories */}
-        <div className="mb-8">
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/50" />
-            <Input
-              placeholder="Search articles..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 max-w-md mx-auto"
-            />
-          </div>
-          
-          <div className="flex flex-wrap justify-center gap-2">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Featured Post */}
         {filteredPosts.length > 0 && filteredPosts[0].featured && (
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20 mb-12">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="relative">
-                <img
-                  src="/placeholder.svg"
-                  alt={filteredPosts[0].title}
-                  className="w-full h-64 md:h-full object-cover rounded-l-lg"
-                />
-                <Badge className="absolute top-4 left-4 bg-purple-500/80 text-white">
-                  Featured
-                </Badge>
-              </div>
-              <CardContent className="p-6">
-                <Badge className="mb-3 bg-blue-500/80 text-white">
-                  Technology
-                </Badge>
-                <CardTitle className="text-2xl text-white mb-3">
-                  {filteredPosts[0].title}
-                </CardTitle>
-                <CardDescription className="text-white/70 mb-4">
-                  {filteredPosts[0].excerpt}
-                </CardDescription>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={filteredPosts[0].author.avatar_url} />
-                      <AvatarFallback>{filteredPosts[0].author.full_name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-white text-sm font-medium">{filteredPosts[0].author.full_name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-white/60 text-sm">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(filteredPosts[0].created_at).toLocaleDateString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <BookOpen className="w-4 h-4" />
-                      {filteredPosts[0].readTime}
-                    </span>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => handleReadMore(filteredPosts[0])}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-                >
-                  Read More
-                </Button>
-              </CardContent>
-            </div>
-          </Card>
+          <FeaturedBlogCard 
+            post={filteredPosts[0]}
+            onReadMore={handleReadMore}
+          />
         )}
 
-        {/* Blog Posts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPosts.slice(filteredPosts[0]?.featured ? 1 : 0).map((post) => (
-            <BlogCard 
-              key={post.id} 
-              post={{
-                id: parseInt(post.id.replace(/-/g, '').substring(0, 8), 16), // Convert UUID to number
-                title: post.title,
-                excerpt: post.excerpt,
-                content: post.content,
-                author: {
-                  name: post.author.full_name,
-                  avatar: post.author.avatar_url || "/placeholder.svg",
-                  role: "Community Member"
-                },
-                publishedAt: post.publishedAt,
-                readTime: post.readTime,
-                category: post.category,
-                tags: post.tags,
-                likes: post.likes,
-                comments: post.comments,
-                image: post.image
-              }}
-              onLike={() => handleLike(post.id)}
-              onReadMore={() => handleReadMore(post)}
-            />
-          ))}
-        </div>
+        <BlogPostsGrid 
+          posts={filteredPosts.slice(filteredPosts[0]?.featured ? 1 : 0)}
+          onLike={handleLike}
+          onReadMore={handleReadMore}
+        />
 
         {filteredPosts.length === 0 && (
           <div className="text-center py-12">
