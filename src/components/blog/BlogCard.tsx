@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, User, MessageCircle, Heart, BookOpen } from "lucide-react";
 
 interface BlogPost {
-  id: number;
+  id: string;
   title: string;
   excerpt: string;
   content: string;
@@ -26,7 +26,7 @@ interface BlogPost {
 
 interface BlogCardProps {
   post: BlogPost;
-  onLike: (id: number) => void;
+  onLike: (id: string) => void;
   onReadMore: (post: BlogPost) => void;
 }
 

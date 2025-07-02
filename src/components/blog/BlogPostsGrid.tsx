@@ -35,7 +35,7 @@ const BlogPostsGrid = ({ posts, onLike, onReadMore }: BlogPostsGridProps) => {
         <BlogCard 
           key={post.id} 
           post={{
-            id: parseInt(post.id.replace(/-/g, '').substring(0, 8), 16),
+            id: post.id,
             title: post.title,
             excerpt: post.excerpt,
             content: post.content,
