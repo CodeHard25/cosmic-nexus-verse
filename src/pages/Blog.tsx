@@ -28,12 +28,17 @@ interface BlogPost {
   };
   likes: number;
   comments: number;
+  readTime: string;
+  category: string;
+  tags: string[];
+  image: string;
+  publishedAt: string;
 }
 
 const Blog = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +73,7 @@ const Blog = () => {
         published: blog.published,
         featured: blog.featured,
         created_at: blog.created_at,
+        publishedAt: blog.created_at,
         author: {
           full_name: blog.profiles?.full_name || 'Unknown Author',
           avatar_url: blog.profiles?.avatar_url
@@ -110,7 +116,7 @@ const Blog = () => {
     });
   };
 
-  const handleReadMore = (post: any) => {
+  const handleReadMore = (post: BlogPost) => {
     setSelectedPost(post);
     setIsModalOpen(true);
   };
@@ -230,9 +236,26 @@ const Blog = () => {
           {filteredPosts.slice(filteredPosts[0]?.featured ? 1 : 0).map((post) => (
             <BlogCard 
               key={post.id} 
-              post={post} 
+              post={{
+                id: parseInt(post.id), // Convert to number for BlogCard
+                title: post.title,
+                excerpt: post.excerpt,
+                content: post.content,
+                author: {
+                  name: post.author.full_name,
+                  avatar: post.author.avatar_url || "/placeholder.svg",
+                  role: "Community Member"
+                },
+                publishedAt: post.publishedAt,
+                readTime: post.readTime,
+                category: post.category,
+                tags: post.tags,
+                likes: post.likes,
+                comments: post.comments,
+                image: post.image
+              }}
               onLike={() => handleLike(post.id)}
-              onReadMore={handleReadMore}
+              onReadMore={() => handleReadMore(post)}
             />
           ))}
         </div>
