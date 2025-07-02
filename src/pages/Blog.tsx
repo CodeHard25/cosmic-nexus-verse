@@ -237,7 +237,7 @@ const Blog = () => {
             <BlogCard 
               key={post.id} 
               post={{
-                id: parseInt(post.id), // Convert to number for BlogCard
+                id: parseInt(post.id.replace(/-/g, '').substring(0, 8), 16), // Convert UUID to number
                 title: post.title,
                 excerpt: post.excerpt,
                 content: post.content,

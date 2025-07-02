@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -119,27 +118,8 @@ const Social = () => {
 
   const fetchComments = async (postId: string) => {
     try {
-      // Use raw SQL query to avoid type issues until Supabase regenerates types
-      const { data: commentsData, error: commentsError } = await supabase
-        .rpc('get_post_comments', { post_id: postId })
-        .select('*');
-
-      // Fallback: try direct query if RPC doesn't work
-      if (commentsError) {
-        const { data: directCommentsData, error: directError } = await supabase
-          .from('social_posts')
-          .select('id')
-          .eq('id', postId)
-          .limit(1);
-
-        if (directError) throw directError;
-        
-        // For now, return empty array until types are updated
-        setComments(prev => ({ ...prev, [postId]: [] }));
-        return;
-      }
-
-      setComments(prev => ({ ...prev, [postId]: commentsData || [] }));
+      // For now, return empty array until comment system is fully implemented
+      setComments(prev => ({ ...prev, [postId]: [] }));
     } catch (error) {
       console.error('Error fetching comments:', error);
       setComments(prev => ({ ...prev, [postId]: [] }));
@@ -217,7 +197,7 @@ const Social = () => {
     if (!newComment[postId]?.trim() || !user) return;
 
     try {
-      // For now, just show success message until types are updated
+      // For now, just show success message until comment system is fully implemented
       setNewComment(prev => ({ ...prev, [postId]: '' }));
       toast({
         title: "Comment added",
