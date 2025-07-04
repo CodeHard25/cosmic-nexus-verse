@@ -10,11 +10,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const pricingPlans = [
   {
     name: "Basic",
-    price: "$9.99",
-    priceId: "price_basic_monthly",
+    price: "₹799",
+    amount: 799,
+    planId: "plan_basic_monthly",
     icon: <Zap className="w-6 h-6" />,
     features: [
       "Up to 100 AI chats per month",
@@ -26,8 +33,9 @@ const pricingPlans = [
   },
   {
     name: "Pro",
-    price: "$19.99",
-    priceId: "price_pro_monthly",
+    price: "₹1,599",
+    amount: 1599,
+    planId: "plan_pro_monthly",
     icon: <Crown className="w-6 h-6" />,
     popular: true,
     features: [
@@ -41,8 +49,9 @@ const pricingPlans = [
   },
   {
     name: "Enterprise",
-    price: "$49.99",
-    priceId: "price_enterprise_monthly",
+    price: "₹3,999",
+    amount: 3999,
+    planId: "plan_enterprise_monthly",
     icon: <Star className="w-6 h-6" />,
     features: [
       "Everything in Pro",
@@ -60,7 +69,17 @@ const Pricing = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleSubscribe = async (priceId: string, planName: string) => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleSubscribe = async (planId: string, planName: string, amount: number) => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -70,17 +89,51 @@ const Pricing = () => {
       return;
     }
 
-    setLoading(priceId);
+    setLoading(planId);
 
     try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Failed to load Razorpay SDK');
+      }
+
       const { data, error } = await supabase.functions.invoke('create-subscription', {
-        body: { priceId, planName }
+        body: { 
+          planId, 
+          planName,
+          amount,
+          period: "monthly"
+        }
       });
 
       if (error) throw error;
 
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: 'INR',
+        name: 'Your App',
+        description: `${planName} Subscription`,
+        subscription_id: data.subscriptionId,
+        handler: function (response: any) {
+          toast({
+            title: "Subscription Successful!",
+            description: `Welcome to ${planName}! Payment ID: ${response.razorpay_payment_id}`,
+          });
+          // Redirect to success page
+          window.location.href = '/subscription-success';
+        },
+        prefill: {
+          name: user.user_metadata?.full_name || '',
+          email: user.email || '',
+        },
+        theme: {
+          color: '#8B5CF6'
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error) {
       console.error('Subscription error:', error);
       toast({
@@ -141,15 +194,15 @@ const Pricing = () => {
                     </ul>
                     
                     <Button
-                      onClick={() => handleSubscribe(plan.priceId, plan.name)}
-                      disabled={loading === plan.priceId}
+                      onClick={() => handleSubscribe(plan.planId, plan.name, plan.amount)}
+                      disabled={loading === plan.planId}
                       className={`w-full mt-6 ${
                         plan.popular 
                           ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600' 
                           : 'bg-white/20 hover:bg-white/30'
                       }`}
                     >
-                      {loading === plan.priceId ? "Processing..." : `Subscribe to ${plan.name}`}
+                      {loading === plan.planId ? "Processing..." : `Subscribe to ${plan.name}`}
                     </Button>
                   </CardContent>
                 </Card>

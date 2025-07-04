@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -14,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { priceId, planName } = await req.json();
+    const { planId, planName, amount, period = "monthly" } = await req.json();
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -30,31 +29,46 @@ serve(async (req) => {
       throw new Error("User not authenticated");
     }
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2023-10-16",
-    });
-
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
+    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
+    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+    
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      throw new Error("Razorpay credentials not configured");
     }
 
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
+    // Create Razorpay subscription
+    const subscriptionResponse = await fetch("https://api.razorpay.com/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        plan_id: planId,
+        customer_notify: 1,
+        quantity: 1,
+        total_count: period === "yearly" ? 1 : 12,
+        notes: {
+          plan_name: planName,
+          user_email: user.email,
+          user_id: user.id,
         },
-      ],
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/pricing`,
+      }),
     });
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    if (!subscriptionResponse.ok) {
+      const errorData = await subscriptionResponse.json();
+      throw new Error(`Razorpay API error: ${errorData.error?.description || 'Unknown error'}`);
+    }
+
+    const subscription = await subscriptionResponse.json();
+
+    return new Response(JSON.stringify({
+      subscriptionId: subscription.id,
+      keyId: razorpayKeyId,
+      amount: amount * 100, // Convert to paise
+      planName,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

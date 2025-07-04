@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,12 @@ import { useCart } from "@/components/shop/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const Cart = () => {
   const { items, removeFromCart, updateQuantity, getTotalPrice } = useCart();
@@ -24,6 +29,16 @@ const Cart = () => {
     toast({
       title: "Item Removed",
       description: "Item has been removed from your cart.",
+    });
+  };
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
     });
   };
 
@@ -49,21 +64,51 @@ const Cart = () => {
     setIsProcessing(true);
 
     try {
-      const totalAmount = Math.round(getTotalPrice() * 100); // Convert to cents
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Failed to load Razorpay SDK');
+      }
+
+      const totalAmount = getTotalPrice();
       const itemNames = items.map(item => `${item.name} (x${item.quantity})`).join(", ");
       
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           amount: totalAmount,
-          currency: 'usd',
-          description: `Order: ${itemNames}`
+          currency: 'INR',
+          description: `Order: ${itemNames}`,
+          receipt: `order_${Date.now()}`
         }
       });
 
       if (error) throw error;
 
-      // Open Stripe checkout in a new tab
-      window.open(data.url, '_blank');
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: 'Your Store',
+        description: `Order: ${itemNames}`,
+        order_id: data.orderId,
+        handler: function (response: any) {
+          toast({
+            title: "Payment Successful!",
+            description: `Payment ID: ${response.razorpay_payment_id}`,
+          });
+          // Clear cart after successful payment
+          items.forEach(item => removeFromCart(item.id));
+        },
+        prefill: {
+          name: user.user_metadata?.full_name || '',
+          email: user.email || '',
+        },
+        theme: {
+          color: '#8B5CF6'
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error) {
       console.error('Checkout error:', error);
       toast({
@@ -77,7 +122,7 @@ const Cart = () => {
   };
 
   const subtotal = getTotalPrice();
-  const tax = subtotal * 0.08; // 8% tax
+  const tax = subtotal * 0.18; // 18% GST
   const total = subtotal + tax;
 
   if (items.length === 0) {
@@ -128,7 +173,7 @@ const Cart = () => {
                       />
                       <div className="flex-1">
                         <h3 className="text-white font-semibold text-lg">{item.name}</h3>
-                        <p className="text-white/70">${item.price.toFixed(2)}</p>
+                        <p className="text-white/70">₹{item.price.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center space-x-3">
                         <Button
@@ -150,7 +195,7 @@ const Cart = () => {
                         </Button>
                       </div>
                       <div className="text-right">
-                        <p className="text-white font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="text-white font-semibold">₹{(item.price * item.quantity).toFixed(2)}</p>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -175,16 +220,16 @@ const Cart = () => {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between text-white/80">
                     <span>Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>₹{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-white/80">
-                    <span>Tax (8%)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>GST (18%)</span>
+                    <span>₹{tax.toFixed(2)}</span>
                   </div>
                   <div className="border-t border-white/20 pt-4">
                     <div className="flex justify-between text-white font-semibold text-lg">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>₹{total.toFixed(2)}</span>
                     </div>
                   </div>
                   <Button 
@@ -196,7 +241,7 @@ const Cart = () => {
                     {isProcessing ? "Processing..." : "Proceed to Checkout"}
                   </Button>
                   <p className="text-white/60 text-sm text-center">
-                    Secure payment powered by Stripe
+                    Secure payment powered by Razorpay
                   </p>
                 </CardContent>
               </Card>

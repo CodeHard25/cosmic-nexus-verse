@@ -16,10 +16,14 @@ These are automatically configured by Lovable:
 **Where to get it:** https://platform.openai.com/api-keys
 **Used for:** AI chat, code suggestions, and image generation with DALL-E
 
-### Stripe Payment Gateway
-**Secret Name:** `STRIPE_SECRET_KEY`
-**Where to get it:** https://dashboard.stripe.com/apikeys
-**Used for:** Payment processing and subscriptions
+### Razorpay Payment Gateway
+**Secret Name:** `RAZORPAY_KEY_ID`
+**Where to get it:** https://dashboard.razorpay.com/app/keys
+**Used for:** Payment processing key ID
+
+**Secret Name:** `RAZORPAY_KEY_SECRET`
+**Where to get it:** https://dashboard.razorpay.com/app/keys
+**Used for:** Payment processing secret key
 
 ### Stable Diffusion API (Optional - Alternative to DALL-E)
 **Secret Name:** `STABILITY_API_KEY`
@@ -44,8 +48,9 @@ These are automatically configured by Lovable:
 - Option 2: Stable Diffusion (requires `STABILITY_API_KEY`)
 
 ### Payment System
-- Requires: `STRIPE_SECRET_KEY`
+- Requires: `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
 - Features: One-time payments, subscription billing, premium features
+- Currency: INR (Indian Rupees)
 
 ### Real-time Chat
 - Requires: Supabase configuration (automatically set up)
@@ -55,12 +60,28 @@ These are automatically configured by Lovable:
 - Requires: Supabase configuration (automatically set up)
 - Features: Upload and store profile pictures, file attachments
 
+## Razorpay Setup
+
+### Getting Razorpay Keys
+1. Sign up at [Razorpay Dashboard](https://dashboard.razorpay.com/)
+2. Complete KYC verification for live mode
+3. Go to Settings > API Keys
+4. Generate API keys for Test/Live mode
+5. Add both Key ID and Key Secret to Supabase secrets
+
+### Razorpay Features Used
+- **One-time Payments**: For cart checkout and individual purchases
+- **Subscriptions**: For premium plan billing
+- **Indian Payment Methods**: UPI, Cards, Net Banking, Wallets
+- **GST Calculation**: 18% GST applied on all transactions
+
 ## Testing
 
 For development and testing:
-- Use Stripe test keys (they start with `sk_test_`)
+- Use Razorpay test keys (they start with `rzp_test_`)
 - OpenAI provides free credits for new accounts
 - Stable Diffusion API offers free credits for testing
+- Test payments with Razorpay test cards and UPI
 
 ## Security Notes
 
@@ -69,11 +90,12 @@ For development and testing:
 - Rotate keys regularly in production
 - Monitor API usage and costs
 - Set up billing alerts for external APIs
+- Razorpay webhook integration recommended for production
 
 ## Support
 
 If you need help obtaining any of these API keys:
 - OpenAI: https://help.openai.com/
-- Stripe: https://support.stripe.com/
+- Razorpay: https://razorpay.com/support/
 - Stability AI: https://platform.stability.ai/docs
 - Supabase: https://supabase.com/docs
